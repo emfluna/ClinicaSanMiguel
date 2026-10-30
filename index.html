@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Clínica Dental San Miguel</title>
+  
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#3858fa">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SM Dental">
+  <link rel="apple-touch-icon" href="/icon-512.png">
+  
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              DEFAULT: '#3858fa',
+              light: '#eff6ff',
+              dark: '#1e3a8a',
+            },
+            background: {
+              light: '#f5f6f8',
+              dark: '#0f172a',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          gridTemplateColumns: {
+            '16': 'repeat(16, minmax(0, 1fr))',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined' !important;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none !important;
+      display: inline-block !important;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      font-feature-settings: 'liga' !important;
+      -webkit-font-feature-settings: 'liga' !important;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-hide {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+
+    @keyframes bell-ring {
+      0%, 100% { transform: rotate(0); }
+      10%, 30%, 50%, 70%, 90% { transform: rotate(15deg); }
+      20%, 40%, 60%, 80% { transform: rotate(-15deg); }
+    }
+    .animate-bell-ring {
+      animation: bell-ring 1.2s ease-in-out infinite;
+      transform-origin: top center;
+      display: inline-block;
+    }
+
+    /* BACKGROUND WATERMARK LOGO */
+    body::after {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('https://i.ibb.co/vzVfK0C/logo-san-miguel.png'); 
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 45%;
+      opacity: 0.04; 
+      z-index: -1;
+      pointer-events: none;
+    }
+    
+    .dark body::after {
+      opacity: 0.02;
+      filter: invert(1);
+    }
+
+    @keyframes whatsapp-pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(37, 211, 102, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+    }
+    .animate-whatsapp-pulse {
+      animation: whatsapp-pulse 2s infinite;
+    }
+
+    @keyframes floating {
+      0% { transform: translateY(0px) rotate(0deg); }
+      33% { transform: translateY(-3px) rotate(1deg); }
+      66% { transform: translateY(1px) rotate(-1deg); }
+      100% { transform: translateY(0px) rotate(0deg); }
+    }
+    .animate-floating {
+      animation: floating 4s ease-in-out infinite;
+    }
+
+    @media (max-width: 768px) {
+      button, a {
+        min-height: 44px;
+      }
+      body::after {
+        background-size: 80%;
+      }
+    }
+
+    @media print {
+      body {
+        background-color: white !important;
+        -webkit-print-color-adjust: exact;
+      }
+      body::after {
+        display: none !important;
+      }
+      #root > div > aside,
+      #root > div > div > header,
+      #root > div > div > main > section,
+      aside.print\:hidden,
+      section.print\:hidden,
+      div.print\:hidden,
+      button.print\:hidden {
+        display: none !important;
+      }
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1",
+    "xlsx": "https://esm.sh/xlsx@0.18.5",
+    "jszip": "https://esm.sh/jszip@3.10.1"
+  }
+}
+</script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-sans antialiased transition-colors duration-300">
+  <div id="root"></div>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js?v=6').catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

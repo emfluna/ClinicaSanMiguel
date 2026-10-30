@@ -1,0 +1,31 @@
+{
+  "name": "clinica-dental-san-miguel",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "node download-icons.js && vite build && (esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs || true)",
+    "start": "node dist/server.cjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1149.0",
+    "@google/genai": "^1.35.0",
+    "@supabase/supabase-js": "^2.90.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.14.0",
+    "@types/web-push": "^3.6.4",
+    "@vitejs/plugin-react": "^5.0.0",
+    "esbuild": "^0.28.0",
+    "express": "^5.2.1",
+    "jszip": "3.10.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tsx": "^4.22.4",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "web-push": "^3.6.7",
+    "xlsx": "0.18.5"
+  },
+  "devDependencies": {}
+}

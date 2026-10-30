@@ -1,0 +1,24 @@
+
+{
+  "name": "Clínica Dental San Miguel",
+  "short_name": "SM Dental",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#3858fa",
+  "description": "Sistema de gestión dental profesional para la Clínica San Miguel.",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

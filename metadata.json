@@ -1,0 +1,11 @@
+{
+  "name": "Clínica Dental San Miguel",
+  "description": "A comprehensive dental management system featuring interactive odontograms, treatment planning, patient records, and scheduling.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
