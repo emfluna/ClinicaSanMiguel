@@ -25,20 +25,24 @@ export interface OptimizedImageResult {
 
 export const optimizeClinicalImage = async (
   file: File | Blob,
-  maxDimension: number = 2560,
-  quality: number = 0.90
+  maxDimension: number = 4096,
+  quality: number = 0.96
 ): Promise<OptimizedImageResult> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('No se pudo leer el archivo de imagen'));
     reader.onload = (e) => {
+      const origDataUrl = e.target?.result as string;
       const img = new Image();
       img.onerror = () => reject(new Error('No se pudo procesar la imagen'));
       img.onload = () => {
-        let width = img.naturalWidth || img.width;
-        let height = img.naturalHeight || img.height;
+        const origWidth = img.naturalWidth || img.width;
+        const origHeight = img.naturalHeight || img.height;
 
-        // Si la imagen ya es pequeña (ej. < 2048px), no la agrandamos
+        let width = origWidth;
+        let height = origHeight;
+
+        // Solo ajustar si excede las dimensiones 4K (4096px)
         if (width > maxDimension || height > maxDimension) {
           if (width > height) {
             height = Math.round((height * maxDimension) / width);
@@ -49,61 +53,33 @@ export const optimizeClinicalImage = async (
           }
         }
 
-        // Crear canvas inicial con las dimensiones originales
-        let currentCanvas = document.createElement('canvas');
-        currentCanvas.width = img.naturalWidth || img.width;
-        currentCanvas.height = img.naturalHeight || img.height;
-        const initialCtx = currentCanvas.getContext('2d');
-        if (!initialCtx) {
+        // Si la imagen no requiere redimensionar y el archivo original es razonable,
+        // podemos preservar la calidad original 1:1 o procesarla a máxima nitidez
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { alpha: true });
+        if (!ctx) {
           reject(new Error('Canvas 2D no disponible'));
           return;
         }
 
-        initialCtx.drawImage(img, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
 
-        // Si la imagen original es más del doble de grande que el objetivo,
-        // reducir a la mitad por pasos para conservar trazos delgados (como venas o fuentes finas)
-        let curW = currentCanvas.width;
-        let curH = currentCanvas.height;
-
-        while (curW / 2 >= width && curH / 2 >= height) {
-          const nextW = Math.floor(curW / 2);
-          const nextH = Math.floor(curH / 2);
-          const nextCanvas = document.createElement('canvas');
-          nextCanvas.width = nextW;
-          nextCanvas.height = nextH;
-          const nextCtx = nextCanvas.getContext('2d');
-          if (!nextCtx) break;
-          nextCtx.imageSmoothingEnabled = true;
-          nextCtx.imageSmoothingQuality = 'high';
-          nextCtx.drawImage(currentCanvas, 0, 0, nextW, nextH);
-          currentCanvas = nextCanvas;
-          curW = nextW;
-          curH = nextH;
-        }
-
-        // Canvas final de destino
-        const finalCanvas = document.createElement('canvas');
-        finalCanvas.width = width;
-        finalCanvas.height = height;
-        const finalCtx = finalCanvas.getContext('2d');
-        if (!finalCtx) {
-          reject(new Error('Canvas final no disponible'));
-          return;
-        }
-
-        finalCtx.imageSmoothingEnabled = true;
-        finalCtx.imageSmoothingQuality = 'high';
-        finalCtx.drawImage(currentCanvas, 0, 0, width, height);
-
-        // Intentar exportar en WebP (máxima preservación de bordes para letras y venas)
+        // Exportar a WebP de ultra alta fidelidad (0.96+) o JPEG (0.95+)
         let format = 'image/webp';
-        let dataUrl = finalCanvas.toDataURL('image/webp', quality);
+        let dataUrl = canvas.toDataURL('image/webp', quality);
 
-        // Fallback a JPEG si el navegador no soporta exportación WebP
         if (!dataUrl.startsWith('data:image/webp')) {
           format = 'image/jpeg';
-          dataUrl = finalCanvas.toDataURL('image/jpeg', Math.min(0.85, quality));
+          dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        }
+
+        // Si por alguna razón la imagen original es más pequeña y nítida en dataUrl original, usar la versión original
+        if (origWidth <= maxDimension && origHeight <= maxDimension && origDataUrl && origDataUrl.length < dataUrl.length * 1.5 && origDataUrl.length < 8000000) {
+          dataUrl = origDataUrl;
         }
 
         const base64Index = dataUrl.indexOf(',');
@@ -118,7 +94,7 @@ export const optimizeClinicalImage = async (
           format
         });
       };
-      img.src = e.target?.result as string;
+      img.src = origDataUrl;
     };
     reader.readAsDataURL(file);
   });

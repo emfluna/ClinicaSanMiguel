@@ -83,6 +83,7 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
   const [previewZoom, setPreviewZoom] = useState(1);
   const [previewRotation, setPreviewRotation] = useState(0);
   const [previewPosition, setPreviewPosition] = useState({ x: 0, y: 0 });
+  const [isHighContrastText, setIsHighContrastText] = useState(false);
   const [galleryViewMode, setGalleryViewMode] = useState<'hd' | 'grid'>('hd');
   const [isDraggingPreview, setIsDraggingPreview] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -92,6 +93,7 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
     setPreviewZoom(1);
     setPreviewRotation(0);
     setPreviewPosition({ x: 0, y: 0 });
+    setIsHighContrastText(false);
   };
 
   const handleDownloadPreview = () => {
@@ -543,8 +545,8 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
       try {
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          // Procesa a 2560px en formato WebP Ultra HD preservando bordes finos, fisuras y números (venas y letras)
-          const result = await optimizeClinicalImage(file, 2560, 0.90);
+          // Procesa a 4096px (4K Ultra HD) preservando bordes finos, etiquetas, manuscritos y lotes (Backblaze B2)
+          const result = await optimizeClinicalImage(file, 4096, 0.96);
           const rawName = file.name ? file.name.replace(/\.[^/.]+$/, '').trim() : '';
           const label = rawName ? rawName.substring(0, 30) : 'Captura HD';
           onAddImage(patient.id, result.dataUrl, label);
@@ -1189,13 +1191,13 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
           <div className="absolute inset-0" onClick={() => setPreviewImage(null)}></div>
 
           {/* Barra superior de herramientas clínicas */}
-          <div className="relative z-10 mb-3 flex items-center gap-1.5 sm:gap-2 bg-slate-900/90 border border-slate-700/80 px-3 py-2 rounded-2xl shadow-2xl backdrop-blur-md">
-            <span className="text-[10px] font-black text-slate-400 px-2 uppercase tracking-widest hidden sm:inline-block">
-              VISOR CLÍNICO HD ({Math.round(previewZoom * 100)}%)
+          <div className="relative z-10 mb-3 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 bg-slate-900/95 border border-slate-700/80 px-3 py-2 rounded-2xl shadow-2xl backdrop-blur-md">
+            <span className="text-[10px] font-black text-slate-300 px-2 uppercase tracking-widest hidden md:inline-block">
+              VISOR ULTRA HD 4K ({Math.round(previewZoom * 100)}%)
             </span>
 
             <button
-              onClick={(e) => { e.stopPropagation(); setPreviewZoom(prev => Math.min(prev + 0.5, 6)); }}
+              onClick={(e) => { e.stopPropagation(); setPreviewZoom(prev => Math.min(prev + 0.5, 8)); }}
               className="size-9 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
               title="Acercar (+50%)"
             >
@@ -1213,25 +1215,49 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
             <button
               onClick={(e) => { e.stopPropagation(); setPreviewZoom(1); setPreviewPosition({ x: 0, y: 0 }); }}
               className="px-2.5 h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-black text-[9px] uppercase tracking-wider flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
-              title="Restablecer tamaño (100%)"
+              title="Tamaño original 100%"
             >
               100%
             </button>
 
             <button
               onClick={(e) => { e.stopPropagation(); setPreviewZoom(2); setPreviewPosition({ x: 0, y: 0 }); }}
-              className="px-2.5 h-9 bg-slate-800 hover:bg-slate-700 text-primary font-black text-[9px] uppercase tracking-wider flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
-              title="Detalle Clínico 200%"
+              className="px-2.5 h-9 bg-slate-800 hover:bg-slate-700 text-blue-400 font-black text-[9px] uppercase tracking-wider flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
+              title="Zoom Detalle 200%"
             >
               200%
             </button>
 
-            <div className="w-px h-5 bg-slate-700/80 mx-1"></div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setPreviewZoom(4); setPreviewPosition({ x: 0, y: 0 }); }}
+              className="px-2.5 h-9 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-black text-[9px] uppercase tracking-wider flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
+              title="Zoom Máximo Lectura 400% (Lotes y Manuscritos)"
+            >
+              400%
+            </button>
+
+            <div className="w-px h-5 bg-slate-700/80 mx-1 hidden sm:block"></div>
+
+            {/* BOTÓN DE MEJORA DE CONTRASTE Y NITIDEZ DE TEXTOS (RECETAS / ETIQUETAS LOT / HOJAS TRATAMIENTO) */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsHighContrastText(prev => !prev); }}
+              className={`px-3 h-9 rounded-xl font-black text-[9px] uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 shadow cursor-pointer ${
+                isHighContrastText 
+                  ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 font-black' 
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300'
+              }`}
+              title="Activar/Desactivar realce de contraste de textos y lotes manuscritos"
+            >
+              <span className="material-symbols-outlined text-base">contrast</span>
+              <span>{isHighContrastText ? 'TEXTO NITIDO ON' : 'NITIDEZ MANUSCRITOS'}</span>
+            </button>
+
+            <div className="w-px h-5 bg-slate-700/80 mx-1 hidden sm:block"></div>
 
             <button
               onClick={(e) => { e.stopPropagation(); setPreviewRotation(prev => (prev + 90) % 360); }}
               className="size-9 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
-              title="Rotar 90° a la derecha"
+              title="Rotar 90°"
             >
               <span className="material-symbols-outlined text-lg">rotate_right</span>
             </button>
@@ -1258,11 +1284,11 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
 
           {/* Lienzo del visor interactivo con arrastre (pan) y zoom por rueda */}
           <div 
-            className="relative z-10 w-full max-w-[94vw] h-[78vh] flex items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-black/50 backdrop-blur-sm cursor-grab active:cursor-grabbing"
+            className="relative z-10 w-full max-w-[96vw] h-[80vh] flex items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/90 backdrop-blur-sm cursor-grab active:cursor-grabbing"
             onWheel={(e) => {
               e.preventDefault();
-              const delta = e.deltaY < 0 ? 0.25 : -0.25;
-              setPreviewZoom(prev => Math.min(Math.max(prev + delta, 0.5), 6));
+              const delta = e.deltaY < 0 ? 0.35 : -0.35;
+              setPreviewZoom(prev => Math.min(Math.max(prev + delta, 0.5), 8));
             }}
             onMouseDown={(e) => {
               if (previewZoom > 1) {
@@ -1291,7 +1317,11 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
               <img
                 src={previewImage}
                 alt="Vista Clínica HD"
-                className="max-w-[85vw] max-h-[72vh] object-contain rounded-2xl shadow-2xl"
+                style={{
+                  imageRendering: 'high-quality',
+                  filter: isHighContrastText ? 'contrast(1.35) brightness(1.02) saturate(1.1)' : 'none'
+                }}
+                className="max-w-[88vw] max-h-[75vh] object-contain rounded-2xl shadow-2xl transition-all"
                 draggable={false}
               />
             </div>
