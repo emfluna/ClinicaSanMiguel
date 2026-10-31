@@ -4,8 +4,8 @@
  */
 
 const DEFAULT_B2_BUCKET = "dental-san-miguel-fotos";
-const DEFAULT_B2_KEY_ID = "005d30d02d5df980000000002";
-const DEFAULT_B2_APP_KEY = "K005VH4caGLzGOScLY6CudpUZqNUdKc";
+const DEFAULT_B2_KEY_ID = "d30d02d5df98";
+const DEFAULT_B2_APP_KEY = "0052c6253e9e3c8e5531378841c98b27a65e2e6e20";
 
 function formatPatientFolderName(patientName?: string, patientId?: string): string {
   if (patientName && typeof patientName === "string" && patientName.trim()) {
