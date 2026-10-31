@@ -494,8 +494,8 @@ let cachedBucketId: string | null = null;
 
 // Default Backblaze B2 credentials for Clínica Dental San Miguel bucket
 const DEFAULT_B2_BUCKET = "dental-san-miguel-fotos";
-const DEFAULT_B2_KEY_ID = "005d30d02d5df980000000002";
-const DEFAULT_B2_APP_KEY = "K005VH4caGLzGOScLY6CudpUZqNUdKc";
+const DEFAULT_B2_KEY_ID = "d30d02d5df98";
+const DEFAULT_B2_APP_KEY = "0052c6253e9e3c8e5531378841c98b27a65e2e6e20";
 const DEFAULT_B2_ENDPOINT = "s3.us-east-005.backblazeb2.com";
 const DEFAULT_B2_REGION = "us-east-005";
 
@@ -712,8 +712,12 @@ app.get("/api/storage/status", async (req, res) => {
   });
 });
 
+function isUuid(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
 function formatPatientFolderName(patientName?: string, patientId?: string): string {
-  if (patientName && typeof patientName === "string" && patientName.trim()) {
+  if (patientName && typeof patientName === "string" && patientName.trim() && !isUuid(patientName)) {
     const clean = patientName
       .trim()
       .normalize("NFD")
@@ -757,18 +761,24 @@ app.post("/api/storage/upload", async (req, res) => {
 
       // Obtener o resolver el nombre y apellido del paciente para crear la carpeta
       let resolvedName = (patientName || "").trim();
-      if (!resolvedName && patientId && patientId !== "general") {
-        try {
-          const { data: pData } = await supabase
-            .from("pacientes")
-            .select("name, nombres, apellidos")
-            .eq("id", patientId)
-            .maybeSingle();
-          if (pData) {
-            resolvedName = pData.name || `${pData.nombres || ""} ${pData.apellidos || ""}`.trim();
+      const isInvalidName = !resolvedName || isUuid(resolvedName) || /^\d+$/.test(resolvedName);
+      if (isInvalidName) {
+        if (patientId && patientId !== "general") {
+          try {
+            const { data: pData } = await supabase
+              .from("pacientes")
+              .select("name, nombres, apellidos")
+              .eq("id", patientId)
+              .maybeSingle();
+            if (pData) {
+              const full = pData.name || `${pData.nombres || ""} ${pData.apellidos || ""}`.trim();
+              if (full && !isUuid(full) && !/^\d+$/.test(full)) {
+                resolvedName = full;
+              }
+            }
+          } catch {
+            // Continuar con fallback si la consulta falla
           }
-        } catch {
-          // Continuar con fallback si la consulta falla
         }
       }
 
@@ -815,6 +825,128 @@ app.post("/api/storage/upload", async (req, res) => {
     provider: "supabase_direct",
     note: "Backblaze B2 no configurado. Almacenado como Data URL optimizado.",
   });
+});
+
+// ==============================================================================
+// MIGRACIÓN Y REORGANIZACIÓN DE CARPETAS EN BACKBLAZE B2 (UUID/CÓDIGOS -> NOMBRES)
+// ==============================================================================
+app.post("/api/storage/migrate-folders", async (req, res) => {
+  const bucketName = process.env.B2_BUCKET_NAME?.trim() || DEFAULT_B2_BUCKET;
+  const auth = await getB2NativeAuth();
+  if (!auth) {
+    res.status(500).json({ error: "No se pudo autenticar con Backblaze B2" });
+    return;
+  }
+  const bucketId = await getB2BucketId(auth, bucketName);
+  if (!bucketId) {
+    res.status(500).json({ error: "No se encontró el bucket de Backblaze" });
+    return;
+  }
+
+  try {
+    const listRes = await fetch(`${auth.apiUrl}/b2api/v3/b2_list_file_names`, {
+      method: "POST",
+      headers: {
+        Authorization: auth.authorizationToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        bucketId,
+        startFileName: "pacientes/",
+        maxFileCount: 10000,
+      }),
+    });
+
+    if (!listRes.ok) {
+      const errText = await listRes.text();
+      res.status(500).json({ error: "Error al listar archivos de Backblaze", details: errText });
+      return;
+    }
+
+    const listData: any = await listRes.json();
+    const files = listData.files || [];
+    let migratedCount = 0;
+    const details: string[] = [];
+
+    for (const file of files) {
+      const fileName = file.fileName;
+      if (!fileName.startsWith("pacientes/")) continue;
+
+      const parts = fileName.split("/");
+      if (parts.length < 3) continue;
+
+      const folder = parts[1];
+      const restPath = parts.slice(2).join("/");
+
+      const isInvalidFolder = isUuid(folder) || /^\d+$/.test(folder);
+      if (isInvalidFolder) {
+        let resolvedName = "";
+        try {
+          if (isUuid(folder)) {
+            const { data: pData } = await supabase
+              .from("pacientes")
+              .select("name, nombres, apellidos")
+              .eq("id", folder)
+              .maybeSingle();
+            if (pData) {
+              resolvedName = pData.name || `${pData.nombres || ""} ${pData.apellidos || ""}`.trim();
+            }
+          } else if (/^\d+$/.test(folder)) {
+            const { data: pData } = await supabase
+              .from("pacientes")
+              .select("name, nombres, apellidos, dni")
+              .eq("dni", folder)
+              .maybeSingle();
+            if (pData) {
+              resolvedName = pData.name || `${pData.nombres || ""} ${pData.apellidos || ""}`.trim();
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        if (resolvedName && !isUuid(resolvedName) && !/^\d+$/.test(resolvedName)) {
+          const newFolderName = formatPatientFolderName(resolvedName);
+          const newFileName = `pacientes/${newFolderName}/${restPath}`;
+
+          if (newFileName !== fileName) {
+            const copyRes = await fetch(`${auth.apiUrl}/b2api/v3/b2_copy_file`, {
+              method: "POST",
+              headers: {
+                Authorization: auth.authorizationToken,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                sourceFileId: file.fileId,
+                fileName: newFileName,
+              }),
+            });
+
+            if (copyRes.ok) {
+              await fetch(`${auth.apiUrl}/b2api/v3/b2_delete_file_version`, {
+                method: "POST",
+                headers: {
+                  Authorization: auth.authorizationToken,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  fileId: file.fileId,
+                  fileName: file.fileName,
+                }),
+              });
+              migratedCount++;
+              details.push(`Migrado: ${fileName} -> ${newFileName}`);
+            }
+          }
+        }
+      }
+    }
+
+    res.json({ success: true, migratedCount, details, message: `Se organizaron ${migratedCount} archivos en Backblaze con nombres de pacientes.` });
+  } catch (err: any) {
+    console.error("[MIGRATE] Error migrando carpetas en Backblaze:", err);
+    res.status(500).json({ error: "Error interno al migrar carpetas", details: err.message });
+  }
 });
 
 // ==============================================================================

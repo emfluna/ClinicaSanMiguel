@@ -17,7 +17,27 @@ const Settings: React.FC<SettingsProps> = ({
   const [name, setName] = useState(user.name);
   const [isUploading, setIsUploading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [migratingB2, setMigratingB2] = useState(false);
+  const [migrateResult, setMigrateResult] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMigrateB2Folders = async () => {
+    setMigratingB2(true);
+    setMigrateResult(null);
+    try {
+      const res = await fetch('/api/storage/migrate-folders', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMigrateResult(data.message || `¡Éxito! Se migraron ${data.migratedCount} archivos.`);
+      } else {
+        setMigrateResult(`Error: ${data.error || 'No se pudo completar la migración'}`);
+      }
+    } catch (err: any) {
+      setMigrateResult(`Error de red: ${err.message}`);
+    } finally {
+      setMigratingB2(false);
+    }
+  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -203,6 +223,37 @@ const Settings: React.FC<SettingsProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* GESTIÓN DE CARPETAS BACKBLAZE B2 */}
+          <div className="bg-white dark:bg-slate-900/50 rounded-[32px] sm:rounded-[48px] lg:rounded-[56px] p-5 sm:p-8 lg:p-10 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="size-10 sm:size-12 rounded-xl sm:rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                <span className="material-symbols-outlined text-xl">cloud_sync</span>
+              </div>
+              <div>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none uppercase">Backblaze B2</h3>
+                <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Organización en la Nube</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Organiza y renombra automáticamente las carpetas en Backblaze que tengan códigos o UUIDs antiguos a los nombres reales de los pacientes.
+            </p>
+            <button
+              onClick={handleMigrateB2Folders}
+              disabled={migratingB2}
+              className="w-full py-4 px-6 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-[11px] shadow-lg disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-base ${migratingB2 ? 'animate-spin' : ''}`}>
+                {migratingB2 ? 'sync' : 'folder_shared'}
+              </span>
+              {migratingB2 ? 'Organizando carpetas...' : 'Organizar Nombres en Backblaze'}
+            </button>
+            {migrateResult && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold rounded-xl">
+                {migrateResult}
+              </div>
+            )}
           </div>
 
           {/* SEGURIDAD DE LA CUENTA */}
