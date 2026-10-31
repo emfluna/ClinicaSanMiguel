@@ -84,12 +84,37 @@ const App: React.FC = () => {
           .order('fecha', { ascending: false });
         if (error) throw error;
         if (data) {
-          setSelectedPatientImages(data.map((g: any) => ({
+          const formatted = data.map((g: any) => ({
             id: g.id,
             date: new Date(g.fecha).toISOString(),
             url: g.url_foto,
             label: g.descripcion || 'Imagen Clínica'
-          })));
+          }));
+          setSelectedPatientImages(formatted);
+
+          // Auto-migrar en segundo plano imágenes antiguas (dataUrl) hacia Backblaze B2
+          const currentPat = patients.find(p => p.id === selectedPatientId);
+          const patName = currentPat ? (currentPat.name || `${currentPat.nombres || ''} ${currentPat.apellidos || ''}`.trim()) : '';
+
+          for (const item of data) {
+            if (item.url_foto && item.url_foto.startsWith('data:image')) {
+              try {
+                const res = await backblazeService.uploadClinicalImage({
+                  dataUrl: item.url_foto,
+                  patientId: selectedPatientId,
+                  patientName: patName,
+                  label: item.descripcion || 'Captura Clínica'
+                });
+                if (res && res.url && res.url.includes('backblazeb2.com')) {
+                  await supabase.from('galeria_clinica').update({ url_foto: res.url }).eq('id', item.id);
+                  setSelectedPatientImages(prev => prev.map(img => img.id === item.id ? { ...img, url: res.url } : img));
+                  console.log(`[B2 Auto-Migración] Foto ${item.id} migrada a Backblaze B2: ${res.url}`);
+                }
+              } catch (migErr) {
+                console.warn('[B2 Auto-Migración] No se pudo migrar imagen antigua:', migErr);
+              }
+            }
+          }
         }
       } catch (err) {
         console.error("Error loading selected patient full gallery images:", err);

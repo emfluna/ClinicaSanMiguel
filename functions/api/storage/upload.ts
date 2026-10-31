@@ -68,26 +68,36 @@ export async function onRequestPost(context: any) {
     const authToken = authData.authorizationToken;
     const accountId = authData.accountId;
 
-    // 2. Obtener bucketId
-    const bucketRes = await fetch(`${apiUrl}/b2api/v3/b2_list_buckets`, {
-      method: "POST",
-      headers: {
-        Authorization: authToken,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ accountId, bucketName })
-    });
+    let bucketId = authData.allowed?.bucketId;
 
-    const bucketData: any = await bucketRes.json();
-    const bucket = bucketData.buckets?.find((b: any) => b.bucketName === bucketName);
-    const bucketId = bucket?.bucketId;
+    if (!bucketId) {
+      // 2. Obtener bucketId si no vino restringido en las credenciales
+      try {
+        const bucketRes = await fetch(`${apiUrl}/b2api/v3/b2_list_buckets`, {
+          method: "POST",
+          headers: {
+            Authorization: authToken,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ accountId, bucketName })
+        });
+
+        if (bucketRes.ok) {
+          const bucketData: any = await bucketRes.json();
+          const bucket = bucketData.buckets?.find((b: any) => b.bucketName === bucketName);
+          bucketId = bucket?.bucketId;
+        }
+      } catch (e) {
+        console.warn("b2_list_buckets skipped or failed:", e);
+      }
+    }
 
     if (!bucketId) {
       return new Response(JSON.stringify({
         success: true,
         url: dataUrl,
         provider: "fallback_direct",
-        warning: `Bucket ${bucketName} no encontrado en cuenta Backblaze.`
+        warning: `Bucket ${bucketName} no encontrado en la cuenta Backblaze.`
       }), {
         headers: { "Content-Type": "application/json" }
       });

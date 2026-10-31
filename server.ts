@@ -523,6 +523,9 @@ async function getB2NativeAuth(): Promise<B2AuthState | null> {
     }
 
     const data: any = await res.json();
+    if (data.allowed?.bucketId) {
+      cachedBucketId = data.allowed.bucketId;
+    }
     cachedB2Auth = {
       accountId: data.accountId,
       authorizationToken: data.authorizationToken,
