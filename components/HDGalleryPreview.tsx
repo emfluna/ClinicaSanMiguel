@@ -75,10 +75,30 @@ const HDGalleryPreview: React.FC<HDGalleryPreviewProps> = ({
     handleSelectImage(images[prevIdx].id);
   };
 
-  const handleDownloadSingle = (url: string, label: string) => {
+  const handleDownloadSingle = async (url: string, label: string) => {
+    try {
+      if (url.startsWith('http')) {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        const cleanLabel = (label || 'Foto_Clinica').replace(/\s+/g, '_');
+        const extMatch = url.match(/\.(png|jpe?g|webp|gif|bmp)(\?.*)?$/i);
+        const ext = extMatch ? extMatch[1] : 'jpg';
+        a.download = `Clinica_SM_${cleanLabel}_${Date.now()}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+        return;
+      }
+    } catch (e) {
+      console.error("Direct blob download failed, falling back to direct link", e);
+    }
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Clinica_SM_${(label || 'Foto').replace(/\s+/g, '_')}_${Date.now()}.webp`;
+    a.download = `Clinica_SM_${(label || 'Foto').replace(/\s+/g, '_')}_${Date.now()}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -86,7 +106,7 @@ const HDGalleryPreview: React.FC<HDGalleryPreviewProps> = ({
 
   const isBackblazeUrl = (url?: string) => {
     if (!url) return false;
-    return url.includes('backblazeb2.com') || url.includes('/file/clinica-san-miguel-fotos');
+    return url.includes('backblazeb2.com') || url.includes('/file/dental-san-miguel-fotos') || url.includes('/file/clinica-san-miguel-fotos');
   };
 
   return (
@@ -276,42 +296,26 @@ const HDGalleryPreview: React.FC<HDGalleryPreviewProps> = ({
               )}
             </div>
 
-            {/* BOTONES DE HERRAMIENTAS FLOTANTES (ESQUINA SUPERIOR DERECHA) */}
-            <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md p-1.5 rounded-2xl border border-slate-700/80 shadow-2xl">
-              <button
-                type="button"
-                onClick={() => setPreviewRotation(prev => (prev + 90) % 360)}
-                className="size-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-                title="Rotar 90°"
-              >
-                <span className="material-symbols-outlined text-base">rotate_right</span>
-              </button>
-
+            {/* BOTONES DE HERRAMIENTAS FLOTANTES (ESQUINA SUPERIOR DERECHA) - SOLO DESCARGAR Y ELIMINAR */}
+            <div className="absolute top-3 right-3 z-30 flex items-center gap-2 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-700/80 shadow-2xl">
               <button
                 type="button"
                 onClick={() => handleDownloadSingle(selectedImage.url, selectedImage.label)}
-                className="size-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                className="h-8 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer text-[10px] font-black uppercase tracking-wider"
                 title="Descargar imagen HD original"
               >
                 <span className="material-symbols-outlined text-base">download</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onOpenZoomModal(selectedImage.url)}
-                className="size-8 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-all active:scale-95 shadow-md shadow-blue-600/30 cursor-pointer"
-                title="Abrir Visor Pantalla Completa con Zoom 400%"
-              >
-                <span className="material-symbols-outlined text-base">zoom_in</span>
+                <span>DESCARGAR</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => onRequestDelete(selectedImage.id)}
-                className="size-8 rounded-xl bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                className="h-8 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer text-[10px] font-black uppercase tracking-wider"
                 title="Eliminar captura"
               >
                 <span className="material-symbols-outlined text-base">delete</span>
+                <span>ELIMINAR</span>
               </button>
             </div>
 
@@ -449,29 +453,20 @@ const HDGalleryPreview: React.FC<HDGalleryPreviewProps> = ({
                   <span className="material-symbols-outlined text-[9px]">hd</span> HD
                 </span>
 
-                <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1.5 p-1 transition-opacity">
+                <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 p-1 transition-opacity">
                   <button
                     type="button"
-                    onClick={() => { setSelectedId(img.id); setViewMode('showcase'); }}
-                    className="size-7 bg-white text-slate-900 rounded-lg flex items-center justify-center shadow hover:scale-110 active:scale-95 transition-all cursor-pointer"
-                    title="Ver en Vista Previa HD"
+                    onClick={() => handleDownloadSingle(img.url, img.label)}
+                    className="size-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center shadow hover:scale-110 active:scale-95 transition-all cursor-pointer"
+                    title="Descargar imagen HD original"
                   >
-                    <span className="material-symbols-outlined text-sm">visibility</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onOpenZoomModal(img.url)}
-                    className="size-7 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow hover:scale-110 active:scale-95 transition-all cursor-pointer"
-                    title="Zoom Pantalla Completa"
-                  >
-                    <span className="material-symbols-outlined text-sm">zoom_in</span>
+                    <span className="material-symbols-outlined text-sm">download</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => onRequestDelete(img.id)}
-                    className="size-7 bg-rose-600 text-white rounded-lg flex items-center justify-center shadow hover:scale-110 active:scale-95 transition-all cursor-pointer"
+                    className="size-8 bg-rose-600 text-white rounded-lg flex items-center justify-center shadow hover:scale-110 active:scale-95 transition-all cursor-pointer"
                     title="Eliminar"
                   >
                     <span className="material-symbols-outlined text-sm">delete</span>

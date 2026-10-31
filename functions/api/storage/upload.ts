@@ -3,7 +3,7 @@
  * Permite subir fotos clínicas a Backblaze B2 directamente cuando el app corre en Cloudflare Pages
  */
 
-const DEFAULT_B2_BUCKET = "clinica-san-miguel-fotos";
+const DEFAULT_B2_BUCKET = "dental-san-miguel-fotos";
 const DEFAULT_B2_KEY_ID = "005d30d02d5df980000000002";
 const DEFAULT_B2_APP_KEY = "K005VH4caGLzGOScLY6CudpUZqNUdKc";
 

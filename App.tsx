@@ -861,6 +861,9 @@ const App: React.FC = () => {
           }} onAddImage={handleAddGalleryImage} onDeleteImage={async iid => { 
             const patient = patients.find(p => p.id === selectedPatientId);
             if (patient) await logActivity('delete', 'IMAGEN ELIMINADA DE GALERÍA', patient.name);
+            // ALMACENAMIENTO PERMANENTE EN BACKBLAZE B2:
+            // Al eliminar una imagen desde la app, solo se retira la referencia de la vista de la clínica.
+            // El archivo físico guardado en Backblaze B2 (dental-san-miguel-fotos) NUNCA se elimina del bucket.
             await supabase.from('galeria_clinica').delete().eq('id', iid);
             setSelectedPatientImages(prev => prev.filter(img => img.id !== iid));
             debouncedFetchAll(true); 

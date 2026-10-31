@@ -5,8 +5,8 @@
 
 export const B2_PUBLIC_CONFIG = {
   endpoint: "https://s3.us-east-005.backblazeb2.com",
-  bucketName: "clinica-san-miguel-fotos",
-  downloadBaseUrl: "https://f005.backblazeb2.com/file/clinica-san-miguel-fotos"
+  bucketName: "dental-san-miguel-fotos",
+  downloadBaseUrl: "https://f005.backblazeb2.com/file/dental-san-miguel-fotos"
 };
 
 export interface UploadImageParams {

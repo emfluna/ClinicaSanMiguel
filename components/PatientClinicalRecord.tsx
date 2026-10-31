@@ -96,11 +96,32 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
     setIsHighContrastText(false);
   };
 
-  const handleDownloadPreview = () => {
-    if (!previewImage) return;
+  const handleDownloadOriginal = async (targetUrl?: string | null, labelToUse?: string) => {
+    const url = targetUrl || previewImage;
+    if (!url) return;
+    try {
+      if (url.startsWith('http')) {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        const cleanName = (labelToUse || patient.name || 'Paciente').replace(/\s+/g, '_');
+        const extMatch = url.match(/\.(png|jpe?g|webp|gif|bmp)(\?.*)?$/i);
+        const ext = extMatch ? extMatch[1] : 'jpg';
+        a.download = `Clinica_SM_${cleanName}_${Date.now()}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+        return;
+      }
+    } catch (e) {
+      console.error("Blob download failed, using direct link fallback", e);
+    }
     const a = document.createElement('a');
-    a.href = previewImage;
-    a.download = `Clinica_${(patient.name || 'Paciente').replace(/\s+/g, '_')}_${Date.now()}.webp`;
+    a.href = url;
+    a.download = `Clinica_${(patient.name || 'Paciente').replace(/\s+/g, '_')}_${Date.now()}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -307,19 +328,62 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
     return <span className="text-slate-500 font-black">{symbol}0</span>;
   };
 
+  const recognitionRef = useRef<any>(null);
+
   const handleVoiceRecord = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) { alert("Su navegador no soporta reconocimiento de voz."); return; }
-    if (isRecording) { setIsRecording(false); return; }
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'es-ES';
-    recognition.onstart = () => setIsRecording(true);
-    recognition.onend = () => setIsRecording(false);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setNoteInput(prev => (prev ? prev + ' ' : '') + transcript);
-    };
-    recognition.start();
+    if (!SpeechRecognition) {
+      console.warn("API de reconocimiento de voz no disponible en este navegador");
+      return;
+    }
+
+    if (isRecording) {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+      }
+      setIsRecording(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'es-ES';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      const initialText = noteInput ? noteInput + (noteInput.endsWith(' ') ? '' : ' ') : '';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let finalStr = '';
+        let interimStr = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalStr += event.results[i][0].transcript;
+          } else {
+            interimStr += event.results[i][0].transcript;
+          }
+        }
+        setNoteInput(initialText + finalStr + interimStr);
+      };
+
+      recognition.onerror = () => {
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error("Error al iniciar grabación de voz:", err);
+      setIsRecording(false);
+    }
   };
 
   const downloadCargoWord = (p: AdvancePayment) => {
@@ -815,23 +879,12 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
 
                         <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => openImagePreview(img.url)}
-                            className="size-8 bg-slate-800 hover:bg-primary text-slate-300 hover:text-white rounded-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-                            title="Ver en Visor HD con Zoom"
-                          >
-                            <span className="material-symbols-outlined text-base">zoom_in</span>
-                          </button>
-                          
-                          <a
-                            href={img.url}
-                            download={`Clinica_${(patient.name || 'Paciente').replace(/\s+/g, '_')}_${img.id}.webp`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="size-8 bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white rounded-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-                            title="Descargar imagen original"
+                            onClick={() => handleDownloadOriginal(img.url, img.label)}
+                            className="size-8 bg-slate-800 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                            title="Descargar imagen original Backblaze"
                           >
                             <span className="material-symbols-outlined text-base">download</span>
-                          </a>
+                          </button>
 
                           <button
                             onClick={() => setAuthDeleteId({ id: img.id, type: 'image' })}
@@ -1191,11 +1244,7 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
           <div className="absolute inset-0" onClick={() => setPreviewImage(null)}></div>
 
           {/* Barra superior de herramientas clínicas */}
-          <div className="relative z-10 mb-3 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 bg-slate-900/95 border border-slate-700/80 px-3 py-2 rounded-2xl shadow-2xl backdrop-blur-md">
-            <span className="text-[10px] font-black text-slate-300 px-2 uppercase tracking-widest hidden md:inline-block">
-              VISOR ULTRA HD 4K ({Math.round(previewZoom * 100)}%)
-            </span>
-
+          <div className="relative z-10 mb-3 flex flex-wrap items-center justify-center gap-2 bg-slate-900/95 border border-slate-700/80 px-4 py-2 rounded-2xl shadow-2xl backdrop-blur-md">
             <button
               onClick={(e) => { e.stopPropagation(); setPreviewZoom(prev => Math.min(prev + 0.5, 8)); }}
               className="size-9 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
@@ -1212,62 +1261,15 @@ const PatientClinicalRecord: React.FC<PatientClinicalRecordProps> = ({
               <span className="material-symbols-outlined text-lg">zoom_out</span>
             </button>
 
-            <button
-              onClick={(e) => { e.stopPropagation(); setPreviewZoom(1); setPreviewPosition({ x: 0, y: 0 }); }}
-              className="px-2.5 h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-black text-[9px] uppercase tracking-wider flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
-              title="Tamaño original 100%"
-            >
-              100%
-            </button>
+            <div className="w-px h-5 bg-slate-700/80 mx-1"></div>
 
             <button
-              onClick={(e) => { e.stopPropagation(); setPreviewZoom(2); setPreviewPosition({ x: 0, y: 0 }); }}
-              className="px-2.5 h-9 bg-slate-800 hover:bg-slate-700 text-blue-400 font-black text-[9px] uppercase tracking-wider flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
-              title="Zoom Detalle 200%"
-            >
-              200%
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); setPreviewZoom(4); setPreviewPosition({ x: 0, y: 0 }); }}
-              className="px-2.5 h-9 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-black text-[9px] uppercase tracking-wider flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
-              title="Zoom Máximo Lectura 400% (Lotes y Manuscritos)"
-            >
-              400%
-            </button>
-
-            <div className="w-px h-5 bg-slate-700/80 mx-1 hidden sm:block"></div>
-
-            {/* BOTÓN DE MEJORA DE CONTRASTE Y NITIDEZ DE TEXTOS (RECETAS / ETIQUETAS LOT / HOJAS TRATAMIENTO) */}
-            <button
-              onClick={(e) => { e.stopPropagation(); setIsHighContrastText(prev => !prev); }}
-              className={`px-3 h-9 rounded-xl font-black text-[9px] uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 shadow cursor-pointer ${
-                isHighContrastText 
-                  ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 font-black' 
-                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300'
-              }`}
-              title="Activar/Desactivar realce de contraste de textos y lotes manuscritos"
-            >
-              <span className="material-symbols-outlined text-base">contrast</span>
-              <span>{isHighContrastText ? 'TEXTO NITIDO ON' : 'NITIDEZ MANUSCRITOS'}</span>
-            </button>
-
-            <div className="w-px h-5 bg-slate-700/80 mx-1 hidden sm:block"></div>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); setPreviewRotation(prev => (prev + 90) % 360); }}
-              className="size-9 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
-              title="Rotar 90°"
-            >
-              <span className="material-symbols-outlined text-lg">rotate_right</span>
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); handleDownloadPreview(); }}
-              className="size-9 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 rounded-xl flex items-center justify-center transition-all active:scale-95 shadow cursor-pointer"
-              title="Descargar imagen en alta resolución"
+              onClick={(e) => { e.stopPropagation(); handleDownloadOriginal(previewImage); }}
+              className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow cursor-pointer text-[10px] font-black uppercase tracking-wider"
+              title="Descargar imagen HD original desde Backblaze"
             >
               <span className="material-symbols-outlined text-lg">download</span>
+              <span>DESCARGAR</span>
             </button>
 
             <div className="w-px h-5 bg-slate-700/80 mx-1"></div>
