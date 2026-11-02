@@ -830,17 +830,15 @@ app.post("/api/storage/upload", async (req, res) => {
 // ==============================================================================
 // MIGRACIÓN Y REORGANIZACIÓN DE CARPETAS EN BACKBLAZE B2 (UUID/CÓDIGOS -> NOMBRES)
 // ==============================================================================
-app.post("/api/storage/migrate-folders", async (req, res) => {
+async function performAutoB2Migration(): Promise<{ success: boolean; migratedCount: number; details: string[]; error?: string }> {
   const bucketName = process.env.B2_BUCKET_NAME?.trim() || DEFAULT_B2_BUCKET;
   const auth = await getB2NativeAuth();
   if (!auth) {
-    res.status(500).json({ error: "No se pudo autenticar con Backblaze B2" });
-    return;
+    return { success: false, migratedCount: 0, details: [], error: "No se pudo autenticar con Backblaze B2" };
   }
   const bucketId = await getB2BucketId(auth, bucketName);
   if (!bucketId) {
-    res.status(500).json({ error: "No se encontró el bucket de Backblaze" });
-    return;
+    return { success: false, migratedCount: 0, details: [], error: "No se encontró el bucket de Backblaze" };
   }
 
   try {
@@ -859,8 +857,7 @@ app.post("/api/storage/migrate-folders", async (req, res) => {
 
     if (!listRes.ok) {
       const errText = await listRes.text();
-      res.status(500).json({ error: "Error al listar archivos de Backblaze", details: errText });
-      return;
+      return { success: false, migratedCount: 0, details: [], error: errText };
     }
 
     const listData: any = await listRes.json();
@@ -942,11 +939,26 @@ app.post("/api/storage/migrate-folders", async (req, res) => {
       }
     }
 
-    res.json({ success: true, migratedCount, details, message: `Se organizaron ${migratedCount} archivos en Backblaze con nombres de pacientes.` });
+    console.log(`[B2 MIGRATION] Migración automática completada. Se organizaron ${migratedCount} archivos con nombres de pacientes.`);
+    return { success: true, migratedCount, details };
   } catch (err: any) {
     console.error("[MIGRATE] Error migrando carpetas en Backblaze:", err);
-    res.status(500).json({ error: "Error interno al migrar carpetas", details: err.message });
+    return { success: false, migratedCount: 0, details: [], error: err.message };
   }
+}
+
+app.post("/api/storage/migrate-folders", async (req, res) => {
+  const result = await performAutoB2Migration();
+  if (!result.success) {
+    res.status(500).json({ error: result.error || "Error al migrar carpetas" });
+    return;
+  }
+  res.json({
+    success: true,
+    migratedCount: result.migratedCount,
+    details: result.details,
+    message: `Se organizaron ${result.migratedCount} archivos en Backblaze con nombres de pacientes.`,
+  });
 });
 
 // ==============================================================================
@@ -969,8 +981,12 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", async () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    // Ejecutar migración automática de carpetas B2 en background al iniciar el servidor
+    setTimeout(() => {
+      performAutoB2Migration().catch(err => console.error("[Auto Migration Error]:", err));
+    }, 2000);
   });
 }
 

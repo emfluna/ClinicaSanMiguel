@@ -237,7 +237,7 @@ const PatientList: React.FC<PatientListProps> = ({
           </button>
           <button 
             onClick={onNewPatient}
-            className="hidden bg-primary text-white px-5 py-2.5 rounded-[14px] font-black text-[11px] shadow-lg shadow-primary/30 items-center gap-2 hover:bg-blue-700 transition-all uppercase tracking-wider active:scale-95 shrink-0"
+            className="flex bg-primary text-white px-5 py-2.5 rounded-[14px] font-black text-[11px] shadow-lg shadow-primary/30 items-center gap-2 hover:bg-blue-700 transition-all uppercase tracking-wider active:scale-95 shrink-0"
           >
             <span className="material-symbols-outlined text-[18px]">person_add</span> 
             NUEVO PACIENTE
